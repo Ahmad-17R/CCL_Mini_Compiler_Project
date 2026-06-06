@@ -1,0 +1,15 @@
+# Build artifacts
+*.o
+*.d
+minicompiler
+minicompiler_asan
+lex_driver
+symtable_test
+
+# Archives
+*.zip
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
