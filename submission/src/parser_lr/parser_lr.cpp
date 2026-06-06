@@ -792,6 +792,81 @@ static void onReduce(int prodIdx,
         }
         sc.pendingParams.clear();
     }
+    // factor → id   (plain variable use — undeclared check)
+    else if (p.lhs == NT::FACTOR && (int)p.rhs.size() == 1
+             && !p.rhs.empty() && p.rhs[0].kind == GSymbol::TERM
+             && p.rhs[0].tt == TokenType::ID) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            if (!sc.sym.lookup(nm))
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+        }
+    }
+    // factor → id ( expression_list )  or  factor → id [ expression ]
+    else if (p.lhs == NT::FACTOR && (int)p.rhs.size() == 4
+             && !p.rhs.empty() && p.rhs[0].kind == GSymbol::TERM
+             && p.rhs[0].tt == TokenType::ID) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            if (!sc.sym.lookup(nm))
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+        }
+    }
+    // variable → id   (assignment lvalue)
+    else if (p.lhs == NT::VARIABLE && (int)p.rhs.size() == 1) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            if (!sc.sym.lookup(nm))
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+        }
+    }
+    // variable → id [ expression ]   (array element lvalue)
+    else if (p.lhs == NT::VARIABLE && (int)p.rhs.size() == 4) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            const SymbolEntry* e = sc.sym.lookup(nm);
+            if (!e)
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+            else if (e->type != SymType::TYPE_ARRAY)
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "'" + nm + "' is not an array (subscript on non-array)");
+        }
+    }
+    // procedure_statement → id   (undeclared procedure call)
+    else if (p.lhs == NT::PROCEDURE_STATEMENT && (int)p.rhs.size() == 1) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            if (!sc.sym.lookup(nm))
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+        }
+    }
+    // procedure_statement → id ( expression_list )
+    else if (p.lhs == NT::PROCEDURE_STATEMENT && (int)p.rhs.size() == 4) {
+        if (!popped.empty() && popped[0].kind == GSymbol::TERM) {
+            const std::string& nm = popped[0].tok.lexeme;
+            const SymbolEntry* e = sc.sym.lookup(nm);
+            if (!e)
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "Undeclared identifier '" + nm + "'");
+            else if (e->kind != SymbolKind::PROCEDURE
+                  && e->kind != SymbolKind::FUNCTION)
+                ErrorHandler::instance().semError(
+                    popped[0].tok.line, popped[0].tok.col,
+                    "'" + nm + "' is not a procedure");
+        }
+    }
     // subprogram_declaration → subprogram_head declarations compound_statement
     else if (p.lhs == NT::SUBPROGRAM_DECLARATION) {
         sc.sym.exitScope();
@@ -950,7 +1025,7 @@ bool ParserLR::parse() {
             msg << "Unexpected '" << cur().lexeme
                 << "' (" << tokenTypeToString(a)
                 << ") in state " << s;
-            ErrorHandler::instance().reportError(cur().line, cur().col, msg.str());
+            ErrorHandler::instance().synError(cur().line, cur().col, msg.str());
 
             // Panic-mode: skip to sync token
             while (!isSync(cur().type)) {
@@ -1023,7 +1098,7 @@ bool ParserLR::parse() {
             if (gt == tb.gotoTab.end()) {
                 if (prod.lhs == NT::S_PRIME) { accepted = true; break; }
                 hadError_ = true;
-                ErrorHandler::instance().reportError(
+                ErrorHandler::instance().synError(
                     cur().line, cur().col,
                     "GOTO error: no entry for " + ntStr(prod.lhs)
                     + " from state " + std::to_string(topSt));

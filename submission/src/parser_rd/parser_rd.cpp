@@ -30,7 +30,7 @@ bool ParserRD::parse() {
         // Already reported to ErrorHandler; just stop parsing
         hadError_ = true;
     } catch (const std::exception& ex) {
-        ErrorHandler::instance().reportError(0, 0, ex.what());
+        ErrorHandler::instance().synError(0, 0, ex.what());
         hadError_ = true;
     }
 
@@ -49,10 +49,10 @@ Token ParserRD::advance() {
 Token ParserRD::match(TokenType t) {
     if (current_.type != t) {
         std::string msg =
-            std::string("[RD] Expected ") + tokenTypeToString(t) +
-            " but found '" + current_.lexeme + "' (" +
+            std::string("Expected '") + tokenTypeToString(t) +
+            "' but found '" + current_.lexeme + "' (" +
             tokenTypeToString(current_.type) + ")";
-        ErrorHandler::instance().reportError(current_.line, current_.col, msg);
+        ErrorHandler::instance().synError(current_.line, current_.col, msg);
         hadError_ = true;
         throw ParseException(current_.line, current_.col, msg);
     }
@@ -260,8 +260,8 @@ SymType ParserRD::parseStandardType() {
         result = SymType::TYPE_REAL;
     } else {
         std::string msg =
-            "[RD] Expected 'integer' or 'real', got '" + current_.lexeme + "'";
-        ErrorHandler::instance().reportError(current_.line, current_.col, msg);
+            "Expected 'integer' or 'real', got '" + current_.lexeme + "'";
+        ErrorHandler::instance().synError(current_.line, current_.col, msg);
         hadError_ = true;
         throw ParseException(current_.line, current_.col, msg);
     }
@@ -520,9 +520,9 @@ void ParserRD::parseStatement() {
 
         // Verify the identifier is declared
         if (!sym_.lookup(idTok.lexeme)) {
-            ErrorHandler::instance().reportError(
+            ErrorHandler::instance().semError(
                 idTok.line, idTok.col,
-                "[RD] Undeclared identifier '" + idTok.lexeme + "'");
+                "Undeclared identifier '" + idTok.lexeme + "'");
             hadError_ = true;
         }
 
@@ -530,9 +530,27 @@ void ParserRD::parseStatement() {
             // variable := expression
             parseVariable(idTok);
             match(TokenType::ASSIGNOP);
+
+            // Type-mismatch check: if lhs is integer and rhs is a real literal
+            const SymbolEntry* lhsEntry = sym_.lookup(idTok.lexeme);
+            if (lhsEntry && lhsEntry->type == SymType::TYPE_INTEGER
+                         && peek().type == TokenType::NUM
+                         && peek().lexeme.find('.') != std::string::npos) {
+                ErrorHandler::instance().semError(
+                    peek().line, peek().col,
+                    "Type mismatch: cannot assign real value to integer variable '"
+                    + idTok.lexeme + "'");
+            }
+
             parseExpression();
         } else {
             // procedure call: id [ ( expression_list ) ]
+            const SymbolEntry* callee = sym_.lookup(idTok.lexeme);
+            if (callee && callee->kind == SymbolKind::VARIABLE) {
+                ErrorHandler::instance().semError(
+                    idTok.line, idTok.col,
+                    "'" + idTok.lexeme + "' is a variable, not a procedure");
+            }
             parseProcedureStatement(idTok);
         }
 
@@ -542,8 +560,8 @@ void ParserRD::parseStatement() {
         if (!check(TokenType::KW_END) &&
             !check(TokenType::EOF_TOKEN)) {
             std::string msg =
-                "[RD] Unexpected token '" + current_.lexeme + "' in statement";
-            ErrorHandler::instance().reportError(current_.line, current_.col, msg);
+                "Unexpected token '" + current_.lexeme + "' in statement";
+            ErrorHandler::instance().synError(current_.line, current_.col, msg);
             hadError_ = true;
             throw ParseException(current_.line, current_.col, msg);
         }
@@ -687,9 +705,9 @@ void ParserRD::parseFactor() {
 
         // Symbol-table USE check
         if (!sym_.lookup(idTok.lexeme)) {
-            ErrorHandler::instance().reportError(
+            ErrorHandler::instance().semError(
                 idTok.line, idTok.col,
-                "[RD] Undeclared identifier '" + idTok.lexeme + "'");
+                "Undeclared identifier '" + idTok.lexeme + "'");
             hadError_ = true;
         }
 
@@ -708,9 +726,9 @@ void ParserRD::parseFactor() {
 
     } else {
         std::string msg =
-            "[RD] Unexpected token '" + current_.lexeme +
+            "Unexpected token '" + current_.lexeme +
             "' (" + tokenTypeToString(current_.type) + ") in factor";
-        ErrorHandler::instance().reportError(current_.line, current_.col, msg);
+        ErrorHandler::instance().synError(current_.line, current_.col, msg);
         hadError_ = true;
         throw ParseException(current_.line, current_.col, msg);
     }
@@ -729,8 +747,8 @@ void ParserRD::parseSign() {
         advance();
     else {
         std::string msg =
-            "[RD] Expected sign ('+' or '-'), got '" + current_.lexeme + "'";
-        ErrorHandler::instance().reportError(current_.line, current_.col, msg);
+            "Expected sign ('+' or '-'), got '" + current_.lexeme + "'";
+        ErrorHandler::instance().synError(current_.line, current_.col, msg);
         hadError_ = true;
         throw ParseException(current_.line, current_.col, msg);
     }

@@ -181,7 +181,7 @@ void Lexer::skipComment(int startLine, int startCol) {
     while (true) {
         char c = nextChar();
         if (c == '\0') {
-            ErrorHandler::instance().reportError(
+            ErrorHandler::instance().lexError(
                 startLine, startCol,
                 "Unterminated comment (opened here)");
             return;
@@ -190,7 +190,7 @@ void Lexer::skipComment(int startLine, int startCol) {
         if (c == '{') {
             // Nested comments are not allowed in this Pascal subset.
             // Report but keep scanning to the end of the outer comment.
-            ErrorHandler::instance().reportError(
+            ErrorHandler::instance().lexError(
                 line_, col_,
                 "Nested comments are not allowed");
         }
@@ -278,7 +278,7 @@ Token Lexer::scanNumber(char first, int startLine, int startCol) {
             } else {
                 // Digit required after decimal point
                 if (after != '\0') retract(); // put non-digit back
-                ErrorHandler::instance().reportError(
+                ErrorHandler::instance().lexError(
                     line_, col_,
                     "Expected digit after decimal point in numeric literal");
             }
@@ -300,7 +300,7 @@ Token Lexer::scanNumber(char first, int startLine, int startCol) {
             }
             // sign now holds the first char after the optional sign
             if (!std::isdigit(static_cast<unsigned char>(sign))) {
-                ErrorHandler::instance().reportError(
+                ErrorHandler::instance().lexError(
                     line_, col_,
                     "Expected digit after exponent in numeric literal");
                 if (sign != '\0') retract();
@@ -413,7 +413,7 @@ Token Lexer::scanToken() {
             msg += "' (ASCII ";
             msg += std::to_string(static_cast<unsigned char>(c));
             msg += ")";
-            ErrorHandler::instance().reportError(startLine, startCol, msg);
+            ErrorHandler::instance().lexError(startLine, startCol, msg);
             return Token(TokenType::UNKNOWN, std::string(1, c), startLine, startCol);
         }
     }

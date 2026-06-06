@@ -66,7 +66,7 @@ void SymbolTable::enterScope() {
 void SymbolTable::exitScope() {
     if (scopeLevel_ == 0) {
         // Should never happen in a well-formed program, but guard it.
-        ErrorHandler::instance().reportError(
+        ErrorHandler::instance().semError(
             0, 0, "[SymbolTable] exitScope() called at global scope — ignored");
         return;
     }
@@ -93,7 +93,7 @@ bool SymbolTable::insert(const SymbolEntry& entry) {
     // the same scope level (shadowing in a deeper scope is fine).
     Node* existing = findInChain(bucketIdx, key, scopeLevel_, scopeLevel_);
     if (existing) {
-        ErrorHandler::instance().reportError(
+        ErrorHandler::instance().semError(
             entry.line, entry.col,
             "'" + entry.name + "' already declared in this scope "
             "(first declared at line " +
@@ -254,6 +254,17 @@ void SymbolTable::dump() const {
     }
 
     std::cout << "\n" << std::string(TOTAL, '=') << "\n\n";
+}
+
+// =============================================================================
+// size — count total entries currently in the table
+// =============================================================================
+int SymbolTable::size() const {
+    int count = 0;
+    for (std::size_t i = 0; i < HASH_SIZE; ++i)
+        for (Node* cur = buckets_[i]; cur; cur = cur->next)
+            ++count;
+    return count;
 }
 
 // =============================================================================

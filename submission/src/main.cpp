@@ -11,6 +11,7 @@
 #include <string>
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
 // =============================================================================
 // Global state definitions (declared extern in globals.h)
@@ -86,19 +87,35 @@ int main(int argc, char* argv[]) {
     printBanner(g_parserMode);
 
     // ---- compile pipeline ---------------------------------------------------
+    CompilationStats stats;
+
     try {
-        // 1. Lexer
+        // 1. Count tokens for the compilation summary (separate lexer pass)
+        {
+            Lexer counter(g_sourceFile);
+            Token t;
+            do {
+                t = counter.nextToken();
+                ++stats.tokenCount;
+            } while (t.type != TokenType::EOF_TOKEN);
+            // Subtract the EOF sentinel so count matches real tokens only
+            if (stats.tokenCount > 0) --stats.tokenCount;
+        }
+
+        // 2. Lexer for parsing
         Lexer lexer(g_sourceFile);
 
-        // 2. Symbol table
+        // 3. Symbol table
         SymbolTable symTable;
 
-        // 3. Parse
+        // 4. Parse
         bool ok = false;
         switch (g_parserMode) {
             case ParserMode::RD: {
                 ParserRD parser(lexer, symTable);
                 ok = parser.parse();
+                stats.rdRan    = true;
+                stats.rdResult = ok;
                 break;
             }
             case ParserMode::LL1: {
@@ -108,6 +125,8 @@ int main(int argc, char* argv[]) {
                     parser.printParsingTable();
                 }
                 ok = parser.parse();
+                stats.ll1Ran    = true;
+                stats.ll1Result = ok;
                 break;
             }
             case ParserMode::LR: {
@@ -117,6 +136,8 @@ int main(int argc, char* argv[]) {
                     parser.printGotoTable();
                 }
                 ok = parser.parse();
+                stats.lrRan    = true;
+                stats.lrResult = ok;
                 break;
             }
         }
@@ -125,12 +146,13 @@ int main(int argc, char* argv[]) {
         else
             std::cout << "Parse failed.\n";
 
-        // 4. Report symbol table (verbose)
+        // 5. Symbol table stats + optional dump
+        stats.symTableSize = symTable.size();
         if (g_verbose) symTable.dump();
 
     } catch (const std::runtime_error& e) {
         std::cerr << "[FATAL] " << e.what() << "\n";
-        ErrorHandler::instance().printSummary();
+        ErrorHandler::instance().printSummary(g_sourceFile, &stats);
         return 1;
     } catch (...) {
         std::cerr << "[FATAL] Unknown exception during compilation.\n";
@@ -138,7 +160,7 @@ int main(int argc, char* argv[]) {
     }
 
     // ---- final summary -------------------------------------------------------
-    ErrorHandler::instance().printSummary();
+    ErrorHandler::instance().printSummary(g_sourceFile, &stats);
 
     return ErrorHandler::instance().hasErrors() ? 1 : 0;
 }

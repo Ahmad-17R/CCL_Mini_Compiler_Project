@@ -140,6 +140,9 @@ public:
     // Prints the entire table grouped by scope level in a formatted table.
     void dump() const;
 
+    // Returns the total number of entries currently in the table.
+    int size() const;
+
 private:
     // ---- internal node type -------------------------------------------------
     struct Node {

@@ -1150,10 +1150,10 @@ void ParserLL1::driveParser() {
             } else {
                 // Terminal mismatch
                 std::string msg =
-                    "[LL1] Expected '" + tokenTypeToString(top.tt) +
+                    "Expected '" + tokenTypeToString(top.tt) +
                     "' but found '" + lookahead.lexeme + "' (" +
                     tokenTypeToString(lookahead.type) + ")";
-                ErrorHandler::instance().reportError(
+                ErrorHandler::instance().synError(
                     lookahead.line, lookahead.col, msg);
                 hadError_ = true;
                 // Skip the offending input token and continue
@@ -1188,9 +1188,9 @@ void ParserLL1::driveParser() {
     }
 
     if (lookahead.type != TT::EOF_TOKEN) {
-        ErrorHandler::instance().reportError(
+        ErrorHandler::instance().synError(
             lookahead.line, lookahead.col,
-            "[LL1] Extra tokens after end of program");
+            "Extra tokens after end of program");
         hadError_ = true;
     }
 }
@@ -1331,9 +1331,9 @@ void ParserLL1::executeAction(int id, const Token& /*lookahead*/) {
 
     case ACT_USE_ID: {
         if (!sym_.lookup(lastId_.lexeme)) {
-            ErrorHandler::instance().reportError(
+            ErrorHandler::instance().semError(
                 lastId_.line, lastId_.col,
-                "[LL1] Undeclared identifier '" + lastId_.lexeme + "'");
+                "Undeclared identifier '" + lastId_.lexeme + "'");
             hadError_ = true;
         }
         break;
@@ -1362,10 +1362,10 @@ void ParserLL1::executeAction(int id, const Token& /*lookahead*/) {
 // Always consumes at least one token to guarantee progress.
 // =============================================================================
 void ParserLL1::panicRecover(NT nt, Token& lookahead) {
-    ErrorHandler::instance().reportError(
+    ErrorHandler::instance().synError(
         lookahead.line, lookahead.col,
-        std::string("[LL1] Syntax error at '") + lookahead.lexeme +
-        "' — no production for " + ntName(nt));
+        std::string("Syntax error at '") + lookahead.lexeme +
+        "' - no production for " + ntName(nt));
     hadError_ = true;
 
     // Find the FOLLOW set for this non-terminal
