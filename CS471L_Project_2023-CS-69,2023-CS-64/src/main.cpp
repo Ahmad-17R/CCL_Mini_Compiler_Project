@@ -136,7 +136,6 @@ static void interactiveMenu() {
         std::cout << "\n";
         std::cout << "╔═══════════════════════════════════════╗\n";
         std::cout << "║     Mini Pascal Compiler              ║\n";
-        std::cout << "║     CS-471L — UET Lahore 2026         ║\n";
         std::cout << "╚═══════════════════════════════════════╝\n";
         std::cout << "\n";
         std::cout << "  Select parser:\n";
